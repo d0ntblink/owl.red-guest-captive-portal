@@ -32,6 +32,20 @@ test('another browser cannot use a consent offer', async () => {
   await assert.rejects(service.accept(await service.offer(handoff, 'browser-one'), 'browser-two'));
 });
 
+test('native empty and space-separated acknowledgments are accepted without cross-gateway grants', async () => {
+  const service = new FasService(key, 'owl.red guest');
+  const first = await service.accept(await service.offer(handoff, 'browser-one'), 'browser-one');
+  const secondHandoff = Buffer.from(Buffer.from(handoff, 'base64').toString().replace(hid, 'c'.repeat(64))).toString('base64');
+  const second = await service.accept(await service.offer(secondHandoff, 'browser-two'), 'browser-two');
+  const parameters = new URLSearchParams({ auth_get: 'view', gatewayhash: service.gatewayHash, payload: Buffer.from('*').toString('base64') });
+  assert.equal(service.authmon(parameters, true), 'ack');
+  assert.equal(service.status(first), 'pending');
+  parameters.set('payload', Buffer.from(`* ${first} ${second}`).toString('base64'));
+  assert.equal(service.authmon(parameters, true), 'ack');
+  assert.equal(service.status(first), 'authenticated');
+  assert.equal(service.status(second), 'authenticated');
+});
+
 test('native percent-encoded Node names preserve the exact native gateway hash and isolate acknowledgments', async () => {
   const service = new FasService(key, 'owl.red guest');
   const name = 'owl.red%20guest%20Node%3a46aed5135bbe%20';

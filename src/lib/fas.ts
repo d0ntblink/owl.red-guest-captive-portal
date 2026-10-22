@@ -80,7 +80,7 @@ export class FasService {
     if (encoded.length > 16384 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) throw new Error('Invalid acknowledgment');
     const acknowledgment = Buffer.from(encoded, 'base64').toString('utf8');
     if (acknowledgment !== 'none') {
-      const clients = acknowledgment.split('\n').map(value => value.replace(/^\* /, '').trim()).filter(Boolean);
+      const clients = acknowledgment.trim().replace(/^\*\s*/, '').split(/\s+/).filter(Boolean);
       if (!clients.every(value => hashSchema.safeParse(value).success)) throw new Error('Invalid acknowledgment');
       for (const rhid of clients) {
         if (this.pending.get(rhid)?.gatewayHash === gatewayHash) {
