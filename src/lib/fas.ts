@@ -29,7 +29,7 @@ export class FasService {
     const fields: Record<string, string> = {};
     for (const field of Buffer.from(encoded, 'base64').toString('utf8').split(', ')) {
       const separator = field.indexOf('=');
-      if (separator < 1) throw new Error('Invalid portal handoff');
+      if (separator < 1) continue;
       const name = field.slice(0, separator);
       if (Object.hasOwn(fields, name)) throw new Error('Duplicate handoff field');
       fields[name] = field.slice(separator + 1);

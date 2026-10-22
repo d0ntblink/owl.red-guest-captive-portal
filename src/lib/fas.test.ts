@@ -35,7 +35,7 @@ test('another browser cannot use a consent offer', async () => {
 test('native percent-encoded Node names preserve the exact native gateway hash and isolate acknowledgments', async () => {
   const service = new FasService(key, 'owl.red guest');
   const name = 'owl.red%20guest%20Node%3a46aed5135bbe%20';
-  const native = Buffer.from(`hid=${hid}, gatewayname=${name}, clientip=198.18.30.2, clientmac=02:6f:77:30:02:04`).toString('base64');
+  const native = Buffer.from(`hid=${hid}, gatewayname=${name}, clientip=198.18.30.2, clientmac=02:6f:77:30:02:04, 0123456789abcdef01234567`).toString('base64');
   const rhid = await service.accept(await service.offer(native, 'browser-one'), 'browser-one');
   const parameters = new URLSearchParams({ auth_get: 'view', gatewayhash: service.gatewayHash, payload: Buffer.from('none').toString('base64') });
   assert.equal(service.authmon(parameters, true), '*');
