@@ -14,8 +14,8 @@ const offerSchema = z.object({
 
 export class FasService {
   private readonly signingKey: Uint8Array;
-  private readonly pending = new LRUCache<string, string>({ max: 256, ttl: 30_000 });
-  private readonly completed = new LRUCache<string, boolean>({ max: 256, ttl: 300_000 });
+  private readonly pending = new LRUCache<string, { gatewayHash: string; line: string }>({ max: 256, ttl: 30_000 });
+  private readonly completed = new LRUCache<string, string>({ max: 256, ttl: 300_000 });
   readonly gatewayHash: string;
 
   constructor(private readonly key: string, private readonly gatewayName: string) {
@@ -35,7 +35,9 @@ export class FasService {
       fields[name] = field.slice(separator + 1);
     }
     const offer = offerSchema.parse(fields);
-    if (offer.gatewayname !== this.gatewayName) throw new Error('Unknown gateway');
+    const name = decodeURIComponent(offer.gatewayname).trim();
+    const prefix = this.gatewayName + ' Node:';
+    if (name !== this.gatewayName && !(name.startsWith(prefix) && /^[a-f0-9]{12}$/i.test(name.slice(prefix.length)))) throw new Error('Unknown gateway');
     return new SignJWT({ ...offer, nonce: digest(nonce) })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuer('owl.red guest portal')
@@ -52,7 +54,7 @@ export class FasService {
     if (payload.nonce !== digest(nonce)) throw new Error('Consent belongs to another browser');
     const rhid = digest(offer.hid + this.key);
     if (!this.completed.has(rhid) && !this.pending.has(rhid)) {
-      this.pending.set(rhid, `${rhid} 120 0 0 0 0 ${Buffer.from('terms=accepted').toString('base64')}`);
+      this.pending.set(rhid, { gatewayHash: digest(offer.gatewayname.trim()), line: `${rhid} 120 0 0 0 0 ${Buffer.from('terms=accepted').toString('base64')}` });
     }
     return rhid;
   }
@@ -64,11 +66,12 @@ export class FasService {
   }
 
   authmon(parameters: URLSearchParams, trustedGateway: boolean): string {
-    if (!trustedGateway || parameters.get('gatewayhash') !== this.gatewayHash) throw new Error('Gateway access denied');
+    const gatewayHash = parameters.get('gatewayhash') ?? '';
+    if (!trustedGateway || !hashSchema.safeParse(gatewayHash).success) throw new Error('Gateway access denied');
     const method = parameters.get('auth_get');
     if (method === 'clear') {
-      this.pending.clear();
-      this.completed.clear();
+      for (const [rhid, request] of this.pending) if (request.gatewayHash === gatewayHash) this.pending.delete(rhid);
+      for (const [rhid, gateway] of this.completed) if (gateway === gatewayHash) this.completed.delete(rhid);
       return '';
     }
     if (method === 'deauthed' || method === 'custom') return 'ack';
@@ -80,10 +83,13 @@ export class FasService {
       const clients = acknowledgment.split('\n').map(value => value.replace(/^\* /, '').trim()).filter(Boolean);
       if (!clients.every(value => hashSchema.safeParse(value).success)) throw new Error('Invalid acknowledgment');
       for (const rhid of clients) {
-        if (this.pending.delete(rhid)) this.completed.set(rhid, true);
+        if (this.pending.get(rhid)?.gatewayHash === gatewayHash) {
+          this.pending.delete(rhid);
+          this.completed.set(rhid, gatewayHash);
+        }
       }
       return 'ack';
     }
-    return ['*', ...Array.from(this.pending.values(), value => encodeURIComponent(value))].join(' ');
+    return ['*', ...Array.from(this.pending.values()).filter(request => request.gatewayHash === gatewayHash).map(request => encodeURIComponent(request.line))].join(' ');
   }
 }
