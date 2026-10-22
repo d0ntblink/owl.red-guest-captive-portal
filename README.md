@@ -29,6 +29,8 @@ browser/device qualification; CI does not certify guest network enforcement.
 
 - Node 24; port `4321`; `/health` checks the HTTP process.
 - `PORTAL_ORIGIN`: canonical HTTPS origin, such as `https://guest.owl.red`.
+  The framework host allowlist includes `guest.owl.red` and HTTP loopback preview
+  hosts only. Changing the production hostname requires a reviewed allowlist edit.
 - `GATEWAY_NAME`: exact native openNDS gateway name, default `owl.red guest`.
 - `FAS_KEY_FILE`: mounted private file containing the same 64-character lowercase
   hex key configured as openNDS `faskey`. Never bake the key into the image.

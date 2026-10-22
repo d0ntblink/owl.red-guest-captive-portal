@@ -6,7 +6,7 @@ RUN npm ci
 COPY astro.config.mjs tsconfig.json ./
 COPY src ./src
 COPY public ./public
-RUN npm test && npm run build && npm prune --omit=dev
+RUN npm run build && npm test && npm prune --omit=dev
 
 FROM node:24-alpine@sha256:1200d815de24f8dcca745fbf7651d166034a35adbcad8860a8538ffff44f1420
 WORKDIR /app
