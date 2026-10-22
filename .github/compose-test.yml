@@ -1,0 +1,12 @@
+services:
+  portal:
+    image: owl-red-guest-portal:ci
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:size=16m,noexec,nosuid]
+    environment:
+      PORTAL_ORIGIN: http://127.0.0.1:4321
+    ports: [127.0.0.1:4321:4321]
+    mem_limit: 192m
+    pids_limit: 64

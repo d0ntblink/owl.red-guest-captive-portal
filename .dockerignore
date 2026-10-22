@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+.astro
+dist
+.env
+.env.*
+*.key
+*.pem
+*.tar
+*.tar.gz
+README.md

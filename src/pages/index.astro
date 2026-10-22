@@ -1,0 +1,106 @@
+---
+import { randomUUID } from 'node:crypto';
+import '@fontsource/fraunces/latin-600.css';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import '../styles/portal.css';
+import { getFas, portalOrigin } from '../lib/runtime.js';
+
+let offer = Astro.cookies.get('owl_portal_offer')?.value ?? '';
+let error = '';
+let status = '';
+const page = Astro.url.searchParams.get('page') ?? 'portal';
+const origin = portalOrigin();
+const cookieOptions = { path: '/', httpOnly: true, secure: origin.startsWith('https:'), sameSite: 'lax' as const, maxAge: 300 };
+const nonce = Astro.cookies.get('owl_portal_nonce')?.value ?? randomUUID();
+Astro.cookies.set('owl_portal_nonce', nonce, cookieOptions);
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (Astro.request.headers.get('origin') !== origin || !Astro.request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) throw new Error('Invalid consent request');
+    const reader = Astro.request.body?.getReader();
+    if (!reader) throw new Error('Missing consent');
+    let body = '';
+    const decoder = new TextDecoder();
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      body += decoder.decode(part.value, { stream: true });
+      if (body.length > 8192) { await reader.cancel(); throw new Error('Consent request too large'); }
+    }
+    const form = new URLSearchParams(body);
+    if (form.get('consent') !== 'yes') throw new Error('Consent required');
+    const rhid = await getFas().accept(form.get('offer') ?? '', nonce);
+    Astro.cookies.set('owl_portal_request', rhid, cookieOptions);
+    return Astro.redirect('/?page=status', 303);
+  } catch {
+    Astro.response.status = 403;
+    error = 'This connection request could not be accepted. Reopen the guest network login to try again.';
+  }
+} else if (page === 'status') {
+  try {
+    status = getFas().status(Astro.cookies.get('owl_portal_request')?.value ?? '');
+    if (status === 'pending') Astro.response.headers.set('Refresh', '3; url=/?page=status');
+  } catch { status = 'expired'; }
+} else if (Astro.url.searchParams.has('fas')) {
+  try {
+    offer = await getFas().offer(Astro.url.searchParams.get('fas') ?? '', nonce);
+    Astro.cookies.set('owl_portal_offer', offer, cookieOptions);
+  }
+  catch {
+    Astro.response.status = 400;
+    error = 'This connection handoff is invalid or the portal is unavailable. Reopen the guest network login.';
+  }
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>owl.red guest</title>
+    <meta name="robots" content="noindex,nofollow" />
+  </head>
+  <body>
+    <div class="portal">
+      <header><span>OWL.RED / GUEST DIVISION</span><span class="network">silence of the lans</span></header>
+      <main>
+        {error ? <><h1>Connection Interrupted</h1><p role="alert">{error}</p><a href="/">Guest Network</a></> : page === 'privacy' ? <>
+          <h1>Privacy &amp; Connection Terms</h1><p class="eyebrow">The non-satirical part</p>
+          <p>This is shared guest internet access, provided without an availability or security guarantee. Use it lawfully and respect other devices and users.</p>
+          <h2>Connection Data</h2><p>The gateway and DHCP service need your device's network address, randomized or hardware MAC address, lease expiry and session timing to provide access. The portal does not request your name or email address.</p>
+          <h2>A Shared Network</h2><p>Use HTTPS and keep your device updated. Do not treat the guest network as trusted. The portal does not install certificates, inspect encrypted web content or promise anonymity.</p>
+          <h2>Temporary Access</h2><p>Sessions expire. Access may be interrupted or withdrawn, including when the gateway or its lease synchronization is unavailable. Reconnecting may require accepting the terms again.</p>
+          <nav><a href="/">Guest Network</a></nav>
+        </> : page === 'security' ? <>
+          <h1>Guaranteed Security*</h1><p class="eyebrow">*No such guarantee exists</p>
+          <div class="status"><strong>Certified by the owl.red Department of Looking Very Serious.</strong></div>
+          <p>Our highly trained observers have reviewed the situation and declined to make any promises.</p>
+          <p class="quiet">The joke ends here: this is a shared guest network. Keep HTTPS enabled, keep your device updated, and never install a certificate just to use Wi-Fi.</p><nav><a href="/">Guest Network</a></nav>
+        </> : page === 'status' ? <>
+          <h1>{status === 'authenticated' ? 'Access Granted' : status === 'pending' ? 'Joining the Flock' : 'Connection Expired'}</h1>
+          <p class="eyebrow">owl.red guest</p>
+          <div class="status"><strong>{status === 'authenticated' ? 'Your cooperation has been noted.' : status === 'pending' ? 'Waiting for the network gateway.' : 'The gateway did not confirm this request.'}</strong></div>
+          <p>{status === 'authenticated' ? 'You are connected through owl.red guest. You may close this window.' : status === 'pending' ? 'Internet access begins only after the gateway confirms your connection.' : 'Reopen the guest network login to request a new connection.'}</p>
+        </> : <>
+          <h1>owl.red guest</h1><p class="eyebrow">Experimental Wireless Psyop Network</p>
+          <p class="intro">A small offering of bandwidth.<br />A voluntary enrollment in the flock.</p>
+          <div class="transmission"><img src="/psyop-cat.png" alt="The guest network's appointed observer" width="128" height="128" /><div><p>By connecting, you acknowledge that you are entering an experimental wireless psyop network.</p><p class="meta">VOLUNTARY PARTICIPATION NOTICE / EST. 2024</p></div></div>
+          <details><summary>Network Notice</summary><ol>
+            <li>Your device will be conscripted as a passive node in our distributed consciousness realignment network. You may experience sudden urges to hoot at the moon. This is normal and expected.</li>
+            <li>All thoughts formed while connected to this network become the intellectual property of owl.red. We appreciate your contributions to the collective.</li>
+            <li>We reserve the right to replace your browser homepage with owl facts at any time without prior notice. This is a feature, not a bug.</li>
+            <li>Your connection is monitored by a team of highly trained owls who rotate in eight-hour shifts. They do not blink. They do not forget.</li>
+            <li>Any attempt to disconnect will be logged, timestamped, and discussed at our next coven meeting. Disconnection is forgiven but never forgotten.</li>
+            <li>owl.red assumes no liability for feelings of paranoia, enlightenment, sudden interest in ornithology, or the persistent sensation of being watched.</li>
+            <li>By continuing, you waive all rights to a reasonable expectation of normalcy for three lunar cycles.</li>
+            <li>This agreement is binding in all dimensions, including ones you have not discovered yet. Especially those ones.</li>
+            <li>If you have read this far, the psyop is already working. Welcome to the flock.</li>
+          </ol><p class="quiet">The notice above is satire. The actual connection and privacy terms are below.</p></details>
+          {offer ? <form method="post" action="/"><input type="hidden" name="offer" value={offer} /><label class="consent"><input type="checkbox" name="consent" value="yes" required /><span>I accept the guest connection terms and understand that this is a shared, experimental network.</span></label><button type="submit">Grant Me Internet, My Liege<small>I Need to Speak with the Gods</small></button></form> : <p class="status">Connect to <strong>silence of the lans</strong> and open its network login to request access.</p>}
+          <nav><a href="/?page=privacy">Privacy &amp; Connection Terms</a><a href="/?page=security">Guaranteed Security*</a></nav>
+        </>}
+      </main>
+      <footer><span>owl.red Wireless Psyop Division</span><span>WE SEE YOU.</span></footer>
+    </div>
+  </body>
+</html>
