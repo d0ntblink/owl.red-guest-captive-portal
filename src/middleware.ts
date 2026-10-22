@@ -14,7 +14,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
   const response = await next();
   response.headers.set('Cache-Control', 'no-store');
-  response.headers.set('Referrer-Policy', 'no-referrer');
+  response.headers.set('Referrer-Policy', 'same-origin');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Content-Security-Policy', "default-src 'self'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
   return response;

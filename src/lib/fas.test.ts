@@ -115,6 +115,7 @@ test('production HTTP consent works with cookies, rejects a foreign origin, and 
     });
     const response = await fetch(`${origin}/?fas=${encodeURIComponent(handoff)}`);
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get('referrer-policy'), 'same-origin', 'Browser form consent must retain its same-origin Origin header');
     const html = await response.text();
     const offer = html.match(/name="offer" value="([^"]+)"/)?.[1];
     assert(offer);
